@@ -139,11 +139,11 @@ def main():
 
     # 复制到 layout 目录
     print('\n==> 复制到 layout 目录')
-    layout_dylib = os.path.join(PROJECT_ROOT, 'layout', 'var', 'jb', 'Library',
+    layout_dylib = os.path.join(PROJECT_ROOT, 'layout', 'Library',
                                  'MobileSubstrate', 'DynamicLibraries', 'FileShareTweak.dylib')
     os.makedirs(os.path.dirname(layout_dylib), exist_ok=True)
     shutil.copy2(dylib_out, layout_dylib)
-    layout_plist = os.path.join(PROJECT_ROOT, 'layout', 'var', 'jb', 'Library',
+    layout_plist = os.path.join(PROJECT_ROOT, 'layout', 'Library',
                                  'MobileSubstrate', 'DynamicLibraries', 'FileShareTweak.plist')
     shutil.copy2(os.path.join(PROJECT_ROOT, 'Tweak.plist'), layout_plist)
     print(f'  dylib: {layout_dylib}')
