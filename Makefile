@@ -2,6 +2,9 @@
 # 本地 Windows 编译请使用 build/build_dylib.sh
 
 export TARGET := iphone:clang:16.5:14.0
+# 强制编译为 arm64e：Relaxin/RootHide 的进程均为 arm64e，rootless scheme 默认会编成 arm64，
+# 导致 dylib 无法注入（面板能靠 Root.plist 显示，但 hook 永远不生效）。必须显式指定 ARCHS。
+ARCHS = arm64e
 # rootless 构建：THEOS_PACKAGE_SCHEME=rootless 会把 layout/Library 安装到 /var/jb
 THEOS_PACKAGE_SCHEME = rootless
 
