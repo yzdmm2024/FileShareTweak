@@ -2,16 +2,30 @@
 #import <objc/runtime.h>
 
 /*
- * FileShareTweak - 一键分享到目标应用
- * 功能：点击/分享 dylib → TrollFools、ipa/tipa → TrollStore、deb → Sileo
- * 偏好文件：/var/jb/var/mobile/Library/Preferences/com.ps.filesharetweak.plist
- *
- * v1.0.7：覆盖 UIDocumentInteractionController 全部 4 种弹法（Filza 走 OpenIn 路径），
- *         并在 UIActivityViewController（系统分享菜单）中注入 FileShare 动作，
- *         路由失败时弹出选择框兜底，保证用户一定能看到插件生效。
+ * FileShareTweak - 诊断版 v1.0.10
+ * 功能逻辑与 1.0.7 一致，额外在关键位置写诊断日志到：
+ *   /var/jb/tmp/fileshare_diag.log   （fallback: NSTemporaryDirectory()）
+ * 用途：确认 dylib 是否加载进 Filza、点文件时到底走了哪个 API / 哪个 Filza 内部类。
  */
 
 static NSString *kFSPrefsPath = @"/var/jb/var/mobile/Library/Preferences/com.ps.filesharetweak.plist";
+
+// ---- 诊断日志 ----
+static void FSLog(NSString *fmt, ...) {
+    va_list ap; va_start(ap, fmt);
+    NSString *s = [[NSString alloc] initWithFormat:fmt arguments:ap];
+    va_end(ap);
+    NSString *ts = [NSDate date].description;
+    NSString *line = [NSString stringWithFormat:@"[%@] %@\n", ts, s];
+    const char *c = line.UTF8String;
+    FILE *f = fopen("/var/jb/tmp/fileshare_diag.log", "a");
+    if (!f) {
+        NSString *fb = [NSTemporaryDirectory() stringByAppendingPathComponent:@"fileshare_diag.log"];
+        f = fopen(fb.UTF8String, "a");
+    }
+    if (f) { fputs(c, f); fflush(f); fclose(f); }
+    NSLog(@"[FSDiag] %@", s);
+}
 
 static BOOL getBoolPref(NSString *key, BOOL defaultValue) {
     NSDictionary *dict = [NSDictionary dictionaryWithContentsOfFile:kFSPrefsPath];
@@ -19,14 +33,12 @@ static BOOL getBoolPref(NSString *key, BOOL defaultValue) {
     return defaultValue;
 }
 
-// 用 LSApplicationWorkspace 把文件路由到目标 App；尝试两种私有方法，任一成功即返回 YES
 static BOOL openFileWithApp(NSURL *fileURL, NSString *bundleID) {
     Class cls = objc_getClass("LSApplicationWorkspace");
-    if (!cls) return NO;
+    if (!cls) { FSLog(@"openFile: LSApplicationWorkspace class NOT found"); return NO; }
     id ws = [cls performSelector:@selector(defaultWorkspace)];
-    if (!ws) return NO;
+    if (!ws) { FSLog(@"openFile: defaultWorkspace nil"); return NO; }
 
-    // 方法 1：openApplicationWithBundleIdentifier:URL:
     SEL sel1 = NSSelectorFromString(@"openApplicationWithBundleIdentifier:URL:");
     if ([ws respondsToSelector:sel1]) {
         NSMethodSignature *sig = [ws methodSignatureForSelector:sel1];
@@ -36,10 +48,10 @@ static BOOL openFileWithApp(NSURL *fileURL, NSString *bundleID) {
         [inv setArgument:&fileURL atIndex:3];
         [inv invoke];
         BOOL ret = NO; [inv getReturnValue:&ret];
+        FSLog(@"openFile: method1(%@) -> %@", bundleID, ret?@"YES":@"NO");
         if (ret) return YES;
     }
 
-    // 方法 2：openURL:withApplication:isSensitive:options:error:
     SEL sel2 = NSSelectorFromString(@"openURL:withApplication:isSensitive:options:error:");
     if ([ws respondsToSelector:sel2]) {
         NSMethodSignature *sig = [ws methodSignatureForSelector:sel2];
@@ -55,12 +67,12 @@ static BOOL openFileWithApp(NSURL *fileURL, NSString *bundleID) {
         [inv setArgument:&error atIndex:6];
         [inv invoke];
         BOOL ret = NO; [inv getReturnValue:&ret];
+        FSLog(@"openFile: method2(%@) -> %@", bundleID, ret?@"YES":@"NO");
         if (ret) return YES;
     }
     return NO;
 }
 
-// 受保护进程（绝不注入 / 绝不挂钩），避免包管理器崩溃或 deb->Sileo 死循环
 static BOOL isProtectedProcess() {
     NSString *bid = [[NSBundle mainBundle] bundleIdentifier];
     if (!bid) return NO;
@@ -83,7 +95,6 @@ static BOOL isProtectedProcess() {
     return NO;
 }
 
-// 扩展名 -> 目标 App bundle 列表（按顺序尝试）
 static NSArray *targetsForExt(NSString *ext) {
     if ([ext isEqualToString:@"dylib"])
         return @[@"wiki.qaq.slpmods.TrollFools", @"com.huami.TrollFools", @"wiki.qaq.TrollFools"];
@@ -130,7 +141,6 @@ static UIViewController *topViewController() {
     return root;
 }
 
-// 弹选择框兜底，保证用户能看到“插件生效”
 static void presentChooser(NSURL *fileURL, NSString *ext) {
     NSArray *targets = targetsForExt(ext);
     if (!targets.count || !prefOnForExt(ext)) return;
@@ -153,48 +163,59 @@ static void presentChooser(NSURL *fileURL, NSString *ext) {
     [top presentViewController:alert animated:YES completion:nil];
 }
 
-// 处理 UIDocumentInteractionController；返回 YES 表示已接管（抑制系统菜单）
-static BOOL handleDocController(id self) {
+// method: 调用来源，便于在日志里区分是哪种弹法
+static BOOL handleDocController(id self, NSString *method) {
     if (isProtectedProcess()) return NO;
     NSURL *fileURL = [self URL];
-    if (!fileURL) return NO;
+    if (!fileURL) { FSLog(@"docController(%@): URL nil", method); return NO; }
     NSString *ext = [[fileURL path] pathExtension].lowercaseString;
     NSArray *targets = targetsForExt(ext);
+    FSLog(@"docController(%@) url=%@ ext=%@ targets=%@ prefOn=%d",
+          method, fileURL, ext, targets, prefOnForExt(ext));
+    FSLog(@"stack:\n%@", [NSThread callStackSymbols]);
     if (!targets.count || !prefOnForExt(ext)) return NO;
 
     for (NSString *bid in targets) {
         if (openFileWithApp(fileURL, bid)) return YES;
     }
-    // 自动路由失败 -> 弹选择框，让用户手动选
     presentChooser(fileURL, ext);
     return YES;
 }
 
 %hook UIDocumentInteractionController
 
+- (instancetype)initWithURL:(NSURL *)url {
+    FSLog(@"UIDIC initWithURL: %@", url);
+    return %orig;
+}
+
 - (BOOL)presentOptionsMenuFromRect:(CGRect)rect inView:(UIView *)view animated:(BOOL)animated {
-    if (handleDocController(self)) return NO;
+    if (handleDocController(self, @"presentOptionsMenuFromRect:")) return NO;
     return %orig;
 }
 
 - (BOOL)presentOpenInMenuFromRect:(CGRect)rect inView:(UIView *)view animated:(BOOL)animated {
-    if (handleDocController(self)) return NO;
+    if (handleDocController(self, @"presentOpenInMenuFromRect:")) return NO;
     return %orig;
 }
 
 - (void)presentOptionsMenuFromBarButtonItem:(id)item animated:(BOOL)animated {
-    if (handleDocController(self)) return;
+    if (handleDocController(self, @"presentOptionsMenuFromBarButtonItem:")) return;
     %orig;
 }
 
 - (void)presentOpenInMenuFromBarButtonItem:(id)item animated:(BOOL)animated {
-    if (handleDocController(self)) return;
+    if (handleDocController(self, @"presentOpenInMenuFromBarButtonItem:")) return;
+    %orig;
+}
+
+- (void)presentPreviewAnimated:(BOOL)animated {
+    FSLog(@"UIDIC presentPreviewAnimated: url=%@", [self URL]);
     %orig;
 }
 
 %end
 
-// 自定义分享动作：注入到系统分享菜单，点一下即路由到目标 App
 @interface FSOpenActivity : UIActivity
 @property (nonatomic, strong) NSURL *fsFileURL;
 @end
@@ -218,6 +239,7 @@ static BOOL handleDocController(id self) {
 
 - (instancetype)initWithActivityItems:(NSArray *)items applicationActivities:(NSArray *)activities {
     if (!isProtectedProcess()) {
+        FSLog(@"UIActivityVC init items=%@", items);
         NSMutableSet *seenExt = [NSMutableSet set];
         for (id item in items) {
             NSURL *u = nil;
@@ -240,6 +262,32 @@ static BOOL handleDocController(id self) {
 
 %end
 
+// 兜底：跟踪系统 openURL，看 Filza 是否绕过 doc controller 直接 openURL
+%hook UIApplication
+- (BOOL)openURL:(NSURL *)url options:(NSDictionary *)options completionHandler:(void (^)(BOOL))completion {
+    FSLog(@"UIApplication openURL: %@ (from %@)", url, [[NSBundle mainBundle] bundleIdentifier]);
+    return %orig;
+}
+%end
+
 %ctor {
-    NSLog(@"[FileShareTweak] loaded v1.0.7, prefs at %@", kFSPrefsPath);
+    NSString *bid = [[NSBundle mainBundle] bundleIdentifier];
+    FSLog(@"========== FileShareTweak v1.0.10 LOADED ==========");
+    FSLog(@"pid=%d bundle=%@ protected=%d", getpid(), bid, isProtectedProcess());
+    // 探测目标 App 是否安装
+    Class cls = objc_getClass("LSApplicationWorkspace");
+    if (cls) {
+        id ws = [cls performSelector:@selector(defaultWorkspace)];
+        for (NSString *t in @[@"wiki.qaq.slpmods.TrollFools",@"com.huami.TrollFools",@"wiki.qaq.TrollFools",@"org.coolstar.SileoStore",@"com.opa334.TrollStore"]) {
+            BOOL inst = NO;
+            if ([ws respondsToSelector:@selector(applicationIsInstalled:)]) {
+                NSMethodSignature *sig = [ws methodSignatureForSelector:@selector(applicationIsInstalled:)];
+                NSInvocation *inv = [NSInvocation invocationWithMethodSignature:sig];
+                [inv setTarget:ws]; [inv setSelector:@selector(applicationIsInstalled:)];
+                [inv setArgument:&t atIndex:2]; [inv invoke];
+                [inv getReturnValue:&inst];
+            }
+            FSLog(@"probe %@ installed=%d", t, inst);
+        }
+    }
 }
