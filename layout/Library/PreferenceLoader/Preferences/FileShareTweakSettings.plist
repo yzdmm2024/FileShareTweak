@@ -10,10 +10,14 @@
         <string>PSLinkCell</string>
         <key>icon</key>
         <string></string>
+        <!-- ★ 必须 = Library/PreferenceBundles/ 下真实存在的目录名去掉 .bundle -->
         <key>bundle</key>
         <string>FileShareTweakSettings</string>
         <key>isController</key>
         <true/>
+        <!-- ★ 必须 = bundle Info.plist 的 NSPrincipalClass -->
+        <key>detail</key>
+        <string>FSTSettingsController</string>
     </dict>
 </dict>
 </plist>

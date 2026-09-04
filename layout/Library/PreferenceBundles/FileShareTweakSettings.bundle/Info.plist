@@ -6,8 +6,9 @@
     <string>zh_CN</string>
     <key>CFBundleDisplayName</key>
     <string>FileShare</string>
+    <!-- ★ 必须与 bundle 目录名一致：目录叫 FileShareTweakSettings.bundle，这里就填 FileShareTweakSettings -->
     <key>CFBundleExecutable</key>
-    <string>Root.plist</string>
+    <string>FileShareTweakSettings</string>
     <key>CFBundleIdentifier</key>
     <string>com.ps.filesharetweak.settings</string>
     <key>CFBundleInfoDictionaryVersion</key>
@@ -15,11 +16,14 @@
     <key>CFBundlePackageType</key>
     <string>BNDL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>1.0.2</string>
     <key>CFBundleVersion</key>
-    <string>1.0</string>
+    <string>1.0.2</string>
     <key>CFBundleName</key>
     <string>FileShare</string>
+    <!-- ★ 设置页主控制器类，必须 = entry.plist 的 detail 字段，且类要在 bundle 里实现 -->
+    <key>NSPrincipalClass</key>
+    <string>FSTSettingsController</string>
     <key>PSControllerClasses</key>
     <array>
         <string>PSListController</string>

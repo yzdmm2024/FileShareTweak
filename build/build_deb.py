@@ -15,12 +15,12 @@ BUILD_DIR = os.path.join(PROJECT_ROOT, 'build')
 DIST_DIR = os.path.join(BUILD_DIR, 'dist')
 LAYOUT_DIR = os.path.join(PROJECT_ROOT, 'layout')
 
-DEB_NAME = 'com.ps.filesharetweak_1.0.0_iphoneos-arm64e.deb'
+DEB_NAME = 'com.ps.filesharetweak_1.0.2_iphoneos-arm64e.deb'
 DEB_PATH = os.path.join(BUILD_DIR, DEB_NAME)
 
 CONTROL_DATA = '''Package: com.ps.filesharetweak
 Name: FileShareTweak
-Version: 1.0.0
+Version: 1.0.2
 Architecture: iphoneos-arm64e
 Priority: optional
 Section: Tweaks
@@ -32,15 +32,13 @@ Description: 一键分享文件到目标App
 '''
 
 POSTINST_DATA = '''#!/bin/sh
-# 安装后刷新
-uicache_bin="/var/jb/usr/bin/uicache"
-if [ -f "$uicache_bin" ]; then
-    "$uicache_bin" -a >/dev/null 2>&1 || true
-fi
-if [ -f "/var/jb/usr/bin/sbreload" ]; then
-    /var/jb/usr/bin/sbreload >/dev/null 2>&1 || true
-elif command -v killall >/dev/null 2>&1; then
-    killall -9 SpringBoard >/dev/null 2>&1 || true
+# rootless：仅刷新图标缓存。
+# 注意：绝对不要在 postinst 里 sbreload / killall SpringBoard，
+# 否则会把正在执行 dpkg 事务的包管理器(Sileo/Zebra)一起杀掉，
+# 导致 dpkg 状态库写一半留下 "interrupted" 状态、下次打开包管理器就崩。
+# 让用户在安装完成后再手动重启(从越狱 App 的 Respring/Reload 即可生效)。
+if [ -f /var/jb/usr/bin/uicache ]; then
+    /var/jb/usr/bin/uicache -a >/dev/null 2>&1 || true
 fi
 exit 0
 '''

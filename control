@@ -1,6 +1,6 @@
 Package: com.ps.filesharetweak
 Name: FileShareTweak
-Version: 1.0.1
+Version: 1.0.2
 Architecture: iphoneos-arm64e
 Depends: firmware (>= 16.0)
 Priority: optional
