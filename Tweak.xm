@@ -284,7 +284,8 @@ static BOOL handleDocController(id self, NSString *method) {
                 NSMethodSignature *sig = [ws methodSignatureForSelector:@selector(applicationIsInstalled:)];
                 NSInvocation *inv = [NSInvocation invocationWithMethodSignature:sig];
                 [inv setTarget:ws]; [inv setSelector:@selector(applicationIsInstalled:)];
-                [inv setArgument:&t atIndex:2]; [inv invoke];
+                NSString *arg = t;
+                [inv setArgument:&arg atIndex:2]; [inv invoke];
                 [inv getReturnValue:&inst];
             }
             FSLog(@"probe %@ installed=%d", t, inst);
