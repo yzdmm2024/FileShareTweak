@@ -1,0 +1,5 @@
+#!/bin/sh
+# 安装后刷新 - rootful 路径，RootHidePatcher 会自动转换
+uicache -a >/dev/null 2>&1 || true
+sbreload >/dev/null 2>&1 || killall -9 SpringBoard >/dev/null 2>&1 || true
+exit 0

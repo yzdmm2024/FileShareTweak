@@ -2,7 +2,8 @@
 # 本地 Windows 编译请使用 build/build_dylib.sh
 
 export TARGET := iphone:clang:16.5:14.0
-THEOS_PACKAGE_SCHEME = rootless
+# rootful 构建，RootHidePatcher 在设备上转换为 rootless
+#THEOS_PACKAGE_SCHEME = rootless
 
 include $(THEOS)/makefiles/common.mk
 

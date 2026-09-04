@@ -1,0 +1,4 @@
+#!/bin/sh
+# 卸载前清理 - rootful 路径，RootHidePatcher 会自动转换
+rm -f /var/mobile/Library/Preferences/com.ps.filesharetweak.plist >/dev/null 2>&1 || true
+exit 0

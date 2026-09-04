@@ -15,13 +15,13 @@ BUILD_DIR = os.path.join(PROJECT_ROOT, 'build')
 DIST_DIR = os.path.join(BUILD_DIR, 'dist')
 LAYOUT_DIR = os.path.join(PROJECT_ROOT, 'layout')
 
-DEB_NAME = 'com.ps.filesharetweak_1.0.0_iphoneos-arm64.deb'
+DEB_NAME = 'com.ps.filesharetweak_1.0.0_iphoneos-arm.deb'
 DEB_PATH = os.path.join(BUILD_DIR, DEB_NAME)
 
 CONTROL_DATA = '''Package: com.ps.filesharetweak
 Name: FileShareTweak
 Version: 1.0.0
-Architecture: iphoneos-arm64
+Architecture: iphoneos-arm
 Priority: optional
 Section: Tweaks
 Author: PS <ps@localhost>
@@ -61,9 +61,9 @@ def create_ar_archive(output_path, file_paths):
         print('  ERROR: llvm-ar 未找到')
         sys.exit(1)
     
-    # 构建 ar 命令
-    # 格式: llvm-ar rcS <output> <file1> <file2> <file3>
-    cmd = [llvm_ar, 'rcS', output_path] + file_paths
+    # 构建 ar 命令（使用 GNU 格式，兼容性更好）
+    # 格式: llvm-ar --format=gnu rcS <output> <file1> <file2> <file3>
+    cmd = [llvm_ar, '--format=gnu', 'rcS', output_path] + file_paths
     print(f'  $ {" ".join(cmd)}')
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
@@ -112,23 +112,23 @@ def main():
     print(f'  prerm: {prerm_path}')
     
     # 复制文件到 dist 目录
-    # 文件结构: var/jb/Library/... 
-    target_dylib = os.path.join(DIST_DIR, 'var', 'jb', 'Library',
+    # 文件结构: Library/... (rootful，RootHidePatcher 会转换)
+    target_dylib = os.path.join(DIST_DIR, 'Library',
                                 'MobileSubstrate', 'DynamicLibraries', 'FileShareTweak.dylib')
     os.makedirs(os.path.dirname(target_dylib), exist_ok=True)
     shutil.copy2(dylib_path, target_dylib)
     print(f'  dylib: {target_dylib}')
     
     # plist
-    target_plist = os.path.join(DIST_DIR, 'var', 'jb', 'Library',
+    target_plist = os.path.join(DIST_DIR, 'Library',
                                 'MobileSubstrate', 'DynamicLibraries', 'FileShareTweak.plist')
     shutil.copy2(os.path.join(PROJECT_ROOT, 'Tweak.plist'), target_plist)
     print(f'  plist: {target_plist}')
     
     # 偏好设置 Bundle
-    bundle_src = os.path.join(LAYOUT_DIR, 'var', 'jb', 'Library',
+    bundle_src = os.path.join(LAYOUT_DIR, 'Library',
                                'PreferenceBundles', 'FileShareTweakSettings.bundle')
-    bundle_dst = os.path.join(DIST_DIR, 'var', 'jb', 'Library',
+    bundle_dst = os.path.join(DIST_DIR, 'Library',
                                'PreferenceBundles', 'FileShareTweakSettings.bundle')
     if os.path.exists(bundle_src):
         shutil.copytree(bundle_src, bundle_dst)
@@ -167,9 +167,9 @@ def main():
     print('==> 创建 data.tar.gz')
     data_tar_path = os.path.join(DIST_DIR, 'data.tar.gz')
     with tarfile.open(data_tar_path, 'w:gz') as tar:
-        var_dir = os.path.join(DIST_DIR, 'var')
-        if os.path.exists(var_dir):
-            for root, dirs, files in os.walk(var_dir):
+        library_dir = os.path.join(DIST_DIR, 'Library')
+        if os.path.exists(library_dir):
+            for root, dirs, files in os.walk(library_dir):
                 for f in files:
                     fpath = os.path.join(root, f)
                     arcname = os.path.relpath(fpath, DIST_DIR).replace('\\', '/')

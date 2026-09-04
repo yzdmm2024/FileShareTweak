@@ -10,12 +10,9 @@ on:
 jobs:
   build:
     runs-on: macos-latest
-    strategy:
-      matrix:
-        theos-sdk: [16.5]
-        
+
     steps:
-    - name: Checkout
+    - name: Checkout source
       uses: actions/checkout@v4
 
     - name: Setup Theos
@@ -25,24 +22,27 @@ jobs:
         path: theos
         ref: master
 
-    - name: Download iOS SDK
+    - name: Clone theos/sdks (get iPhoneOS16.5.sdk)
       run: |
-        mkdir -p theos/sdks
-        curl -L "https://github.com/theos/sdks/releases/download/master/iPhoneOS16.5.sdk.tar.xz" -o iPhoneOS16.5.sdk.tar.xz
-        tar -xf iPhoneOS16.5.sdk.tar.xz -C theos/sdks/
+        git clone --depth 1 https://github.com/theos/sdks.git theos/sdks
+        # Only keep 16.5 to save space
+        find theos/sdks -name "*.sdk" ! -name "iPhoneOS16.5.sdk" -type d -exec rm -rf {} +
+        ls -la theos/sdks/
 
-    - name: Build Tweak
+    - name: Build with Theos
       run: |
         export THEOS=$PWD/theos
-        export TARGET=${{ matrix.theos-sdk }}
-        
-        # 编译 dylib
-        cd FileShareTweak
+        export TARGET=iphone:clang:16.5:14.0
         make clean
         make package FINALPACKAGE=1
 
-    - name: Upload Artifact
+    - name: Rename .deb
+      run: |
+        mv packages/*.deb FileShareTweak.deb || true
+        ls -la *.deb
+
+    - name: Upload .deb artifact
       uses: actions/upload-artifact@v4
       with:
         name: FileShareTweak-deb
-        path: FileShareTweak/*.deb
+        path: ./*.deb
