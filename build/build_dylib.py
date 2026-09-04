@@ -85,7 +85,7 @@ def main():
     print('\n==> 编译 Tweak.m -> Tweak.o')
     tweak_o = os.path.join(BUILD_DIR, 'Tweak.o')
     cflags = [
-        '-target', 'arm64-apple-ios16.5',
+        '-target', 'arm64e-apple-ios16.5',
         '-isysroot', SDK_DIR,
         '-fobjc-arc',
         '-fobjc-exceptions',
@@ -110,7 +110,7 @@ def main():
     dylib_out = os.path.join(BUILD_DIR, 'FileShareTweak.dylib')
     link_flags = [
         '-dynamiclib',
-        '-target', 'arm64-apple-ios16.5',
+        '-target', 'arm64e-apple-ios16.5',
         '-isysroot', SDK_DIR,
         '-fuse-ld=lld',
         '-Wl,-platform_version,ios,16.5,16.5',
@@ -121,6 +121,15 @@ def main():
         tweak_o,
     ]
     run([CLANG] + link_flags, 'clang 链接')
+    # 修正 ld.lld 把 arm64e cpusubtype 清零为 ARM64_ALL 的 bug
+    # 否则 rootless(arm64e) 设备 dyld 不会按 PAC 处理，注入失败
+    import struct as _st
+    _bb = bytearray(open(dylib_out, "rb").read())
+    if _st.unpack("<I", _bb[:4])[0] == 0xFEEDFACF:  # 瘦 Mach-O (arm64 LE)
+        _st.pack_into("<I", _bb, 8, 0x00000002)  # CPU_SUBTYPE_ARM64E
+        open(dylib_out, "wb").write(_bb)
+        print("   cpusubtype 已修正为 ARM64E (0x2)")
+
 
     # 尝试签名
     print('\n==> 签名')
