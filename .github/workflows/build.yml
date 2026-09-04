@@ -35,8 +35,10 @@ jobs:
         export THEOS=$PWD/theos
         $THEOS/bin/update-theos
 
-    - name: Install dm.pl (Theos deb packager)
-      run: npm install -g @theosdev/dm.pl
+    - name: Install dependencies (ldid, dm.pl)
+      run: |
+        brew install ldid
+        npm install -g @theosdev/dm.pl
 
     - name: Build with Theos
       run: |
