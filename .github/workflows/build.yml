@@ -24,6 +24,7 @@ jobs:
 
     - name: Clone theos/sdks (get iPhoneOS16.5.sdk)
       run: |
+        rm -rf theos/sdks
         git clone --depth 1 https://github.com/theos/sdks.git theos/sdks
         # Only keep 16.5 to save space
         find theos/sdks -name "*.sdk" ! -name "iPhoneOS16.5.sdk" -type d -exec rm -rf {} +
