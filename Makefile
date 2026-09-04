@@ -5,6 +5,9 @@ export TARGET := iphone:clang:16.5:14.0
 # rootless 构建：THEOS_PACKAGE_SCHEME=rootless 会把 layout/Library 安装到 /var/jb
 THEOS_PACKAGE_SCHEME = rootless
 
+# 构建偏好设置包子工程
+SUBPROJECTS += Preferences
+
 include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = FileShareTweak
