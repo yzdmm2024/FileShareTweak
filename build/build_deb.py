@@ -122,7 +122,7 @@ def main():
     # plist
     target_plist = os.path.join(DIST_DIR, 'Library',
                                 'MobileSubstrate', 'DynamicLibraries', 'FileShareTweak.plist')
-    shutil.copy2(os.path.join(PROJECT_ROOT, 'Tweak.plist'), target_plist)
+    shutil.copy2(os.path.join(PROJECT_ROOT, 'FileShareTweak.plist'), target_plist)
     print(f'  plist: {target_plist}')
     
     # 偏好设置 Bundle
