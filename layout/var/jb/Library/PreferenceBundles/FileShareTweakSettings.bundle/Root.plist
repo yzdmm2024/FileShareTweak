@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>title</key>
+    <string>FileShare</string>
+    <key>items</key>
+    <array>
+        <dict>
+            <key>cell</key>
+            <string>PSGroupCell</string>
+            <key>label</key>
+            <string>文件类型快捷分享</string>
+            <key>footerText</key>
+            <string>开启后，点击对应文件将直接调用目标App打开，跳过分享菜单</string>
+        </dict>
+        <dict>
+            <key>cell</key>
+            <string>PSSwitchCell</string>
+            <key>default</key>
+            <true/>
+            <key>defaults</key>
+            <string>com.ps.filesharetweak</string>
+            <key>key</key>
+            <string>dylib_enabled</string>
+            <key>label</key>
+            <string>.dylib → TrollFools</string>
+            <key>icon</key>
+            <string></string>
+        </dict>
+        <dict>
+            <key>cell</key>
+            <string>PSSwitchCell</string>
+            <key>default</key>
+            <true/>
+            <key>defaults</key>
+            <string>com.ps.filesharetweak</string>
+            <key>key</key>
+            <string>ipa_enabled</string>
+            <key>label</key>
+            <string>.ipa/.tipa → TrollStore</string>
+        </dict>
+        <dict>
+            <key>cell</key>
+            <string>PSSwitchCell</string>
+            <key>default</key>
+            <true/>
+            <key>defaults</key>
+            <string>com.ps.filesharetweak</string>
+            <key>key</key>
+            <string>deb_enabled</string>
+            <key>label</key>
+            <string>.deb → Sileo</string>
+        </dict>
+        <dict>
+            <key>cell</key>
+            <string>PSGroupCell</string>
+            <key>label</key>
+            <string>关于</string>
+            <key>footerText</key>
+            <string>FileShareTweak v1.0 | 适配 Relaxin iOS 16.6.1</string>
+        </dict>
+    </array>
+</dict>
+</plist>

@@ -1,0 +1,20 @@
+# Build artifacts
+build/src/
+build/obj/
+build/*.dylib
+build/*.deb
+build/dist/
+build/DEBIAN/
+build/logos2objc.py
+build/sdk/
+
+# Theos
+.theos/
+packages/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+*.o

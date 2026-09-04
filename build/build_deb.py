@@ -1,0 +1,215 @@
+#!/usr/bin/env python3
+"""
+build_deb.py — 将编译好的 dylib 打包为 .deb
+要求：build_dylib.py 已成功执行生成 dylib
+"""
+
+import os
+import sys
+import tarfile
+import shutil
+import struct
+import time
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+BUILD_DIR = os.path.join(PROJECT_ROOT, 'build')
+DIST_DIR = os.path.join(BUILD_DIR, 'dist')
+LAYOUT_DIR = os.path.join(PROJECT_ROOT, 'layout')
+
+DEB_NAME = 'com.ps.filesharetweak_1.0.0_iphoneos-arm64.deb'
+DEB_PATH = os.path.join(BUILD_DIR, DEB_NAME)
+
+CONTROL_DATA = '''Package: com.ps.filesharetweak
+Name: FileShareTweak
+Version: 1.0.0
+Architecture: iphoneos-arm64
+Depends: firmware (>= 16.0)
+Priority: optional
+Section: Tweaks
+Author: PS
+Maintainer: PS
+Description: 一键分享文件到目标App
+ 点击dylib自动打开TrollFools
+ 点击ipa/tipa自动打开TrollStore
+ 点击deb自动打开Sileo
+'''
+
+POSTINST_DATA = '''#!/bin/bash
+# 安装后刷新
+if [ -f /var/jb/usr/bin/uicache ]; then
+    /var/jb/usr/bin/uicache -a 2>/dev/null || true
+fi
+if command -v sbreload &>/dev/null; then
+    /var/jb/usr/bin/sbreload 2>/dev/null || true
+elif command -v killall &>/dev/null; then
+    killall -9 SpringBoard 2>/dev/null || true
+fi
+exit 0
+'''
+
+PRERM_DATA = '''#!/bin/bash
+# 卸载前清理
+rm -f /var/jb/var/mobile/Library/Preferences/com.ps.filesharetweak.plist 2>/dev/null || true
+exit 0
+'''
+
+
+def create_ar_archive(output_path, files):
+    """
+    创建 ar 归档（.deb 格式）
+    ar 格式：!<arch>\n + 文件头 + 文件数据...
+    文件头：name(16) + timestamp(12) + owner(6) + group(6) + mode(8) + size(10) + magic(2)
+    """
+    with open(output_path, 'wb') as f:
+        # 写 ar 全局头
+        f.write(b'!<arch>\n')
+        
+        for name, data in files:
+            # 文件名
+            if len(name) > 15:
+                # 长文件名使用 GNU 格式
+                name = f'#1/{len(data)}'  # 简化处理
+            name_bytes = name.encode('utf-8').ljust(16, b' ')[:16]
+            
+            # 时间戳
+            timestamp = str(int(time.time())).encode('utf-8').ljust(12, b' ')[:12]
+            
+            # 所有者/组/权限
+            owner = b'0     '  # 6 chars
+            group = b'0     '  # 6 chars
+            mode = b'100644  '  # 8 chars
+            
+            # 大小
+            size = str(len(data)).encode('utf-8').ljust(10, b' ')[:10]
+            
+            # 文件头结束符
+            magic = b'`\n'
+            
+            # 写文件头
+            f.write(name_bytes)
+            f.write(timestamp)
+            f.write(owner)
+            f.write(group)
+            f.write(mode)
+            f.write(size)
+            f.write(magic)
+            
+            # 写数据
+            f.write(data)
+            
+            # 对齐到偶数长度
+            if len(data) % 2 == 1:
+                f.write(b'\n')
+
+
+def main():
+    print('=' * 50)
+    print('  FileShareTweak .deb 打包脚本')
+    print('=' * 50)
+
+    # 检查 dylib
+    dylib_path = os.path.join(BUILD_DIR, 'FileShareTweak.dylib')
+    if not os.path.exists(dylib_path):
+        print('  ERROR: 请先运行 build_dylib.py 编译 dylib')
+        print(f'  未找到: {dylib_path}')
+        sys.exit(1)
+
+    print(f'\n==> 准备打包目录: {DIST_DIR}')
+    if os.path.exists(DIST_DIR):
+        shutil.rmtree(DIST_DIR)
+    
+    # 创建目录结构
+    debian_dir = os.path.join(DIST_DIR, 'DEBIAN')
+    os.makedirs(debian_dir, exist_ok=True)
+    
+    # 写 control 文件
+    control_path = os.path.join(debian_dir, 'control')
+    with open(control_path, 'w', encoding='utf-8') as f:
+        f.write(CONTROL_DATA)
+    print(f'  control: {control_path}')
+    
+    # 写 postinst
+    postinst_path = os.path.join(debian_dir, 'postinst')
+    with open(postinst_path, 'w', encoding='utf-8') as f:
+        f.write(POSTINST_DATA)
+    os.chmod(postinst_path, 0o755)
+    print(f'  postinst: {postinst_path}')
+    
+    # 写 prerm
+    prerm_path = os.path.join(debian_dir, 'prerm')
+    with open(prerm_path, 'w', encoding='utf-8') as f:
+        f.write(PRERM_DATA)
+    os.chmod(prerm_path, 0o755)
+    print(f'  prerm: {prerm_path}')
+    
+    # 复制文件到 dist 目录
+    # 文件结构: var/jb/Library/... 
+    target_dylib = os.path.join(DIST_DIR, 'var', 'jb', 'Library',
+                                'MobileSubstrate', 'DynamicLibraries', 'FileShareTweak.dylib')
+    os.makedirs(os.path.dirname(target_dylib), exist_ok=True)
+    shutil.copy2(dylib_path, target_dylib)
+    print(f'  dylib: {target_dylib}')
+    
+    # plist
+    target_plist = os.path.join(DIST_DIR, 'var', 'jb', 'Library',
+                                'MobileSubstrate', 'DynamicLibraries', 'FileShareTweak.plist')
+    shutil.copy2(os.path.join(PROJECT_ROOT, 'Tweak.plist'), target_plist)
+    print(f'  plist: {target_plist}')
+    
+    # 偏好设置 Bundle
+    bundle_src = os.path.join(LAYOUT_DIR, 'var', 'jb', 'Library',
+                               'PreferenceBundles', 'FileShareTweakSettings.bundle')
+    bundle_dst = os.path.join(DIST_DIR, 'var', 'jb', 'Library',
+                               'PreferenceBundles', 'FileShareTweakSettings.bundle')
+    if os.path.exists(bundle_src):
+        shutil.copytree(bundle_src, bundle_dst)
+        print(f'  bundle: {bundle_dst}')
+    
+    # 创建 debian-binary
+    debian_binary = b'2.0\n'
+    
+    # 创建 control.tar.gz
+    print('\n==> 创建 control.tar.gz')
+    control_tar_path = os.path.join(DIST_DIR, 'control.tar.gz')
+    with tarfile.open(control_tar_path, 'w:gz') as tar:
+        tar.add(debian_dir, arcname='DEBIAN')
+    with open(control_tar_path, 'rb') as f:
+        control_data = f.read()
+    print(f'  control.tar.gz: {len(control_data)} bytes')
+    
+    # 创建 data.tar.gz
+    print('==> 创建 data.tar.gz')
+    data_tar_path = os.path.join(DIST_DIR, 'data.tar.gz')
+    with tarfile.open(data_tar_path, 'w:gz') as tar:
+        var_dir = os.path.join(DIST_DIR, 'var')
+        if os.path.exists(var_dir):
+            tar.add(var_dir, arcname='var')
+    with open(data_tar_path, 'rb') as f:
+        data_data = f.read()
+    print(f'  data.tar.gz: {len(data_data)} bytes')
+    
+    # 打包为 .deb (ar 格式)
+    print(f'\n==> 打包 .deb: {DEB_PATH}')
+    create_ar_archive(DEB_PATH, [
+        ('debian-binary', debian_binary),
+        ('control.tar.gz', control_data),
+        ('data.tar.gz', data_data),
+    ])
+    
+    # 校验
+    deb_size = os.path.getsize(DEB_PATH)
+    print(f'\n  .deb 大小: {deb_size} bytes')
+    
+    print('\n' + '=' * 50)
+    print('  ✅ 打包成功！')
+    print(f'  .deb: {DEB_PATH}')
+    print('=' * 50)
+    print()
+    print('  安装到手机:')
+    print(f'  scp {DEB_PATH} root@<设备IP>:/var/mobile/')
+    print('  ssh root@<设备IP> "dpkg -i /var/mobile/com.ps.filesharetweak_1.0.0_iphoneos-arm64.deb"')
+    print()
+
+
+if __name__ == '__main__':
+    main()

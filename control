@@ -1,0 +1,12 @@
+Package: com.ps.filesharetweak
+Name: FileShareTweak
+Version: 1.0.0
+Architecture: iphoneos-arm64
+Depends: firmware (>= 16.0)
+Conflicts:
+Replaces:
+Priority: optional
+Section: Tweaks
+Author: PS
+Maintainer: PS
+Description: 一键分享文件到目标App - 点击dylib自动打开TrollFools，ipa/tipa自动打开TrollStore，deb自动打开Sileo
