@@ -5,6 +5,9 @@ export TARGET := iphone:clang:16.5:14.0
 # rootless 构建：THEOS_PACKAGE_SCHEME=rootless 会把 layout/Library 安装到 /var/jb
 THEOS_PACKAGE_SCHEME = rootless
 
+# Relaxin/RootHide 环境要求 deb 的 Architecture 字段为 iphoneos-arm64e
+THEOS_PACKAGE_ARCH = iphoneos-arm64e
+
 include $(THEOS)/makefiles/common.mk
 
 # ===== Tweak 主体 =====
