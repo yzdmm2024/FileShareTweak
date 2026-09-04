@@ -33,13 +33,13 @@ cp "$ROOT/control" "$DIST_DIR/DEBIAN/control"
 # 复制 dylib 和 plist
 echo "==> 复制 dylib 和 plist"
 cp "$DYLIB" "$DIST_DIR/var/jb/Library/MobileSubstrate/DynamicLibraries/FileShareTweak.dylib"
-cp "$ROOT/Tweak.plist" "$DIST_DIR/var/jb/Library/MobileSubstrate/DynamicLibraries/FileShareTweak.plist"
+cp "$ROOT/FileShareTweak.plist" "$DIST_DIR/var/jb/Library/MobileSubstrate/DynamicLibraries/FileShareTweak.plist"
 
 # 复制偏好设置 Bundle
 echo "==> 复制偏好设置 Bundle"
-cp "$ROOT/layout/var/jb/Library/PreferenceBundles/FileShareTweakSettings.bundle/Info.plist" \
+cp "$ROOT/layout/Library/PreferenceBundles/FileShareTweakSettings.bundle/Info.plist" \
    "$DIST_DIR/var/jb/Library/PreferenceBundles/FileShareTweakSettings.bundle/"
-cp "$ROOT/layout/var/jb/Library/PreferenceBundles/FileShareTweakSettings.bundle/Root.plist" \
+cp "$ROOT/layout/Library/PreferenceBundles/FileShareTweakSettings.bundle/Root.plist" \
    "$DIST_DIR/var/jb/Library/PreferenceBundles/FileShareTweakSettings.bundle/"
 
 # 创建 postinst 脚本（安装后刷新）
@@ -70,7 +70,7 @@ chmod 755 "$DIST_DIR/DEBIAN/prerm"
 
 # 打包 .deb
 echo "==> 打包 .deb"
-DEB_NAME="com.ps.filesharetweak_1.0.0_iphoneos-arm64.deb"
+DEB_NAME="com.ps.filesharetweak_1.0.0_iphoneos-arm64e.deb"
 # 使用 ar 打包（Git Bash 下可用）
 cd "$DIST_DIR"
 if command -v dpkg-deb &>/dev/null; then
