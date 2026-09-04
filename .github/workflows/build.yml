@@ -30,6 +30,9 @@ jobs:
         find theos/sdks -name "*.sdk" ! -name "iPhoneOS16.5.sdk" -type d -exec rm -rf {} +
         ls -la theos/sdks/
 
+    - name: Install dm.pl (Theos deb packager)
+      run: npm install -g @theosdev/dm.pl
+
     - name: Build with Theos
       run: |
         export THEOS=$PWD/theos
