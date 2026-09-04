@@ -1,16 +1,10 @@
 //
 // FSTSettingsController.m
-// FileShareTweak 设置面板控制器（最小实现）
+// FileShareTweak 设置面板控制器
 //
-#import <Foundation/Foundation.h>
+#import <Preferences/PSListController.h>
 #import <UIKit/UIKit.h>
 #include <unistd.h>
-
-// PSListController 是 Settings 进程运行时已有的私有类；
-// 这里只做前向声明，继承关系在运行时由 runtime 解析。
-@interface PSListController : NSObject
-- (NSArray *)loadSpecifiersFromPlistName:(NSString *)name target:(id)target;
-@end
 
 @interface FSTSettingsController : PSListController
 - (void)respring;
@@ -18,8 +12,15 @@
 
 @implementation FSTSettingsController
 
-// PSListController 默认会根据 Root.plist 自动加载；
-// 这里保留 respring 动作，供 Root.plist 里的 PSButtonCell 调用。
+// 关键修复：必须重写 specifiers 并显式从 Root.plist 加载。
+// PSListController 默认不会自动读取 Root.plist，不写这个面板就是空白的。
+- (NSArray *)specifiers {
+    if (!_specifiers) {
+        _specifiers = [self loadSpecifiersFromPlistName:@"Root" target:self];
+    }
+    return _specifiers;
+}
+
 - (void)respring {
     // 优先使用 sbreload；不存在则直接杀掉 SpringBoard 注销。
     const char *sb = "/var/jb/usr/bin/sbreload";
