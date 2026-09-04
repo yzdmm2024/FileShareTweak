@@ -163,6 +163,27 @@ static void presentChooser(NSURL *fileURL, NSString *ext) {
     [top presentViewController:alert animated:YES completion:nil];
 }
 
+// 诊断弹窗：直接把命中的信息显示出来，省去读日志文件
+static void presentDiag(NSString *method, NSURL *url, NSString *ext, NSArray *targets, BOOL prot) {
+    UIViewController *top = topViewController();
+    if (!top) return;
+    NSArray *syms = [[NSThread callStackSymbols] componentsSeparatedByString:@"\n"];
+    if (syms.count > 14) syms = [syms subarrayWithRange:NSMakeRange(0, 14)];
+    NSString *msg = [NSString stringWithFormat:
+        @"method=%@\next=%@\nurl=%@\nprotected=%d\ntargets=%@\n\nstack(前14):\n%@",
+        method, ext, url, prot, targets, [syms componentsJoinedByString:@"\n"]];
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"[FSDiag] 命中"
+                                                                 message:msg
+                                                          preferredStyle:UIAlertControllerStyleAlert];
+    [a addAction:[UIAlertAction actionWithTitle:@"知道了" style:UIAlertActionStyleDefault handler:nil]];
+    if (a.popoverPresentationController) {
+        a.popoverPresentationController.sourceView = top.view;
+        a.popoverPresentationController.sourceRect = CGRectMake(top.view.bounds.size.width/2,
+                                                                top.view.bounds.size.height/2, 1, 1);
+    }
+    [top presentViewController:a animated:YES completion:nil];
+}
+
 // method: 调用来源，便于在日志里区分是哪种弹法
 static BOOL handleDocController(id self, NSString *method) {
     if (isProtectedProcess()) return NO;
@@ -173,6 +194,7 @@ static BOOL handleDocController(id self, NSString *method) {
     FSLog(@"docController(%@) url=%@ ext=%@ targets=%@ prefOn=%d",
           method, fileURL, ext, targets, prefOnForExt(ext));
     FSLog(@"stack:\n%@", [NSThread callStackSymbols]);
+    presentDiag(method, fileURL, ext, targets, NO);
     if (!targets.count || !prefOnForExt(ext)) return NO;
 
     for (NSString *bid in targets) {
@@ -272,7 +294,7 @@ static BOOL handleDocController(id self, NSString *method) {
 
 %ctor {
     NSString *bid = [[NSBundle mainBundle] bundleIdentifier];
-    FSLog(@"========== FileShareTweak v1.0.10 LOADED ==========");
+    FSLog(@"========== FileShareTweak v1.0.11 LOADED ==========");
     FSLog(@"pid=%d bundle=%@ protected=%d", getpid(), bid, isProtectedProcess());
     // 探测目标 App 是否安装
     Class cls = objc_getClass("LSApplicationWorkspace");
