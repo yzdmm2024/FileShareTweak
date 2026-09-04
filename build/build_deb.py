@@ -8,8 +8,7 @@ import os
 import sys
 import tarfile
 import shutil
-import struct
-import time
+import subprocess
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 BUILD_DIR = os.path.join(PROJECT_ROOT, 'build')
@@ -53,52 +52,23 @@ exit 0
 '''
 
 
-def create_ar_archive(output_path, files):
+def create_ar_archive(output_path, file_paths):
     """
-    创建 ar 归档（.deb 格式）
-    ar 格式：!<arch>\n + 文件头 + 文件数据...
-    文件头：name(16) + timestamp(12) + owner(6) + group(6) + mode(8) + size(10) + magic(2)
+    使用 llvm-ar 创建 ar 归档（.deb 格式）
     """
-    with open(output_path, 'wb') as f:
-        # 写 ar 全局头
-        f.write(b'!<arch>\n')
-        
-        for name, data in files:
-            # 文件名
-            if len(name) > 15:
-                # 长文件名使用 GNU 格式
-                name = f'#1/{len(data)}'  # 简化处理
-            name_bytes = name.encode('utf-8').ljust(16, b' ')[:16]
-            
-            # 时间戳
-            timestamp = str(int(time.time())).encode('utf-8').ljust(12, b' ')[:12]
-            
-            # 所有者/组/权限
-            owner = b'0     '  # 6 chars
-            group = b'0     '  # 6 chars
-            mode = b'100644  '  # 8 chars
-            
-            # 大小
-            size = str(len(data)).encode('utf-8').ljust(10, b' ')[:10]
-            
-            # 文件头结束符
-            magic = b'`\n'
-            
-            # 写文件头
-            f.write(name_bytes)
-            f.write(timestamp)
-            f.write(owner)
-            f.write(group)
-            f.write(mode)
-            f.write(size)
-            f.write(magic)
-            
-            # 写数据
-            f.write(data)
-            
-            # 对齐到偶数长度
-            if len(data) % 2 == 1:
-                f.write(b'\n')
+    llvm_ar = r'C:\Program Files\LLVM\bin\llvm-ar.exe'
+    if not os.path.exists(llvm_ar):
+        print('  ERROR: llvm-ar 未找到')
+        sys.exit(1)
+    
+    # 构建 ar 命令
+    # 格式: llvm-ar rcS <output> <file1> <file2> <file3>
+    cmd = [llvm_ar, 'rcS', output_path] + file_paths
+    print(f'  $ {" ".join(cmd)}')
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f'  ERROR: {result.stderr}')
+        sys.exit(result.returncode)
 
 
 def main():
@@ -165,7 +135,9 @@ def main():
         print(f'  bundle: {bundle_dst}')
     
     # 创建 debian-binary
-    debian_binary = b'2.0\n'
+    debian_binary_path = os.path.join(DIST_DIR, 'debian-binary')
+    with open(debian_binary_path, 'wb') as f:
+        f.write(b'2.0\n')
     
     # 创建 control.tar.gz（显式设置权限）
     print('\n==> 创建 control.tar.gz')
@@ -189,9 +161,7 @@ def main():
                 tinfo = tar.gettarinfo(dpath, arcname)
                 tinfo.mode = 0o755
                 tar.addfile(tinfo)
-    with open(control_tar_path, 'rb') as f:
-        control_data = f.read()
-    print(f'  control.tar.gz: {len(control_data)} bytes')
+    print(f'  control.tar.gz: {os.path.getsize(control_tar_path)} bytes')
     
     # 创建 data.tar.gz（显式设置权限）
     print('==> 创建 data.tar.gz')
@@ -216,16 +186,14 @@ def main():
                     tinfo = tar.gettarinfo(dpath, arcname)
                     tinfo.mode = 0o755
                     tar.addfile(tinfo)
-    with open(data_tar_path, 'rb') as f:
-        data_data = f.read()
-    print(f'  data.tar.gz: {len(data_data)} bytes')
+    print(f'  data.tar.gz: {os.path.getsize(data_tar_path)} bytes')
     
-    # 打包为 .deb (ar 格式)
+    # 打包为 .deb (ar 格式，使用 llvm-ar)
     print(f'\n==> 打包 .deb: {DEB_PATH}')
     create_ar_archive(DEB_PATH, [
-        ('debian-binary', debian_binary),
-        ('control.tar.gz', control_data),
-        ('data.tar.gz', data_data),
+        debian_binary_path,
+        control_tar_path,
+        data_tar_path,
     ])
     
     # 校验
