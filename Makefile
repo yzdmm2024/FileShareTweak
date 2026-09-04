@@ -14,5 +14,7 @@ FileShareTweak_PRIVATE_FRAMEWORKS = MobileCoreServices UIKit
 
 include $(THEOS_MAKE_PATH)/tweak.mk
 
-after-install::
-	install.exec "killall -9 SpringBoard"
+# 注意：绝不能在安装后脚本里 killall SpringBoard / sbreload，
+# 否则会把正在执行 dpkg 事务的包管理器(Sileo/Zebra)一起杀掉，
+# 导致 dpkg 状态库写一半留下 "interrupted"，下次打开包管理器就崩。
+# 安装完成后请用户从越狱 App(Relaxin/Dopamine)手动 Respring 让插件生效。

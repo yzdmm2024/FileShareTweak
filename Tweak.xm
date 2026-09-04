@@ -61,16 +61,36 @@ static BOOL openFileWithApp(NSURL *fileURL, NSString *bundleID) {
     return ret;
 }
 
+// ========== 受保护进程（绝不注入） ==========
+static BOOL isProtectedProcess() {
+    NSString *bid = [[NSBundle mainBundle] bundleIdentifier];
+    if (!bid) return NO;
+    // 包管理器 / 主屏：注入它们会导致包管理器崩溃或 deb->Sileo 死循环
+    NSArray *exact = @[
+        @"com.apple.springboard",
+        @"org.coolstar.SileoStore",
+        @"xyz.willy.Zebra",
+        @"wiki.qaq.saily",
+        @"com.saurik.Cydia",
+        @"com.apple.installer",
+    ];
+    NSString *low = [bid lowercaseString];
+    for (NSString *b in exact) {
+        if ([low isEqualToString:[b lowercaseString]]) return YES;
+    }
+    NSArray *subs = @[@"sileo", @"zebra", @"saily", @"cydia", @"installer"];
+    for (NSString *s in subs) {
+        if ([low containsString:s]) return YES;
+    }
+    return NO;
+}
+
 // ========== Hook UIDocumentInteractionController ==========
 %hook UIDocumentInteractionController
 
 - (BOOL)presentOptionsMenuFromRect:(CGRect)rect inView:(UIView *)view animated:(BOOL)animated {
-    // 不挂钩主屏(SpringBoard)与 Sileo 自身：
-    // 1) 避免安装/卸载时重启主屏把包管理器一起杀掉导致 dpkg 中断；
-    // 2) 避免 Sileo 打开 deb 时触发 "deb→Sileo" 死循环。
-    NSString *selfBid = [[NSBundle mainBundle] bundleIdentifier];
-    if ([selfBid isEqualToString:@"com.apple.springboard"] ||
-        [selfBid localizedCaseInsensitiveContainsString:@"sileo"]) {
+    // 受保护进程直接放行，绝不挂钩
+    if (isProtectedProcess()) {
         return %orig;
     }
 
