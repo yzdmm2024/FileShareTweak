@@ -4,11 +4,12 @@
 <dict>
     <key>Filter</key>
     <dict>
-        <!-- 白名单：只注入「文件」App 与 Safari，绝不注入任何包管理器/主屏，
+        <!-- 白名单：只注入「文件」App、Filza 与 Safari，绝不注入任何包管理器/主屏，
              避免 Sileo 被注入后崩溃或陷入 deb->Sileo 死循环 -->
         <key>Bundles</key>
         <array>
             <string>com.apple.DocumentsApp</string>
+            <string>com.tigisoftware.Filza</string>
             <string>com.apple.mobilesafari</string>
         </array>
     </dict>
