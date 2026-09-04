@@ -23,33 +23,32 @@ CONTROL_DATA = '''Package: com.ps.filesharetweak
 Name: FileShareTweak
 Version: 1.0.0
 Architecture: iphoneos-arm64
-Depends: firmware (>= 16.0)
 Priority: optional
 Section: Tweaks
-Author: PS
-Maintainer: PS
+Author: PS <ps@localhost>
+Maintainer: PS <ps@localhost>
+Tag: purpose::extension
 Description: 一键分享文件到目标App
- 点击dylib自动打开TrollFools
- 点击ipa/tipa自动打开TrollStore
- 点击deb自动打开Sileo
+ 点击dylib自动打开TrollFools，点击ipa/tipa自动打开TrollStore，点击deb自动打开Sileo
 '''
 
-POSTINST_DATA = '''#!/bin/bash
+POSTINST_DATA = '''#!/bin/sh
 # 安装后刷新
-if [ -f /var/jb/usr/bin/uicache ]; then
-    /var/jb/usr/bin/uicache -a 2>/dev/null || true
+uicache_bin="/var/jb/usr/bin/uicache"
+if [ -f "$uicache_bin" ]; then
+    "$uicache_bin" -a >/dev/null 2>&1 || true
 fi
-if command -v sbreload &>/dev/null; then
-    /var/jb/usr/bin/sbreload 2>/dev/null || true
-elif command -v killall &>/dev/null; then
-    killall -9 SpringBoard 2>/dev/null || true
+if [ -f "/var/jb/usr/bin/sbreload" ]; then
+    /var/jb/usr/bin/sbreload >/dev/null 2>&1 || true
+elif command -v killall >/dev/null 2>&1; then
+    killall -9 SpringBoard >/dev/null 2>&1 || true
 fi
 exit 0
 '''
 
-PRERM_DATA = '''#!/bin/bash
+PRERM_DATA = '''#!/bin/sh
 # 卸载前清理
-rm -f /var/jb/var/mobile/Library/Preferences/com.ps.filesharetweak.plist 2>/dev/null || true
+rm -f /var/jb/var/mobile/Library/Preferences/com.ps.filesharetweak.plist >/dev/null 2>&1 || true
 exit 0
 '''
 
@@ -168,22 +167,55 @@ def main():
     # 创建 debian-binary
     debian_binary = b'2.0\n'
     
-    # 创建 control.tar.gz
+    # 创建 control.tar.gz（显式设置权限）
     print('\n==> 创建 control.tar.gz')
     control_tar_path = os.path.join(DIST_DIR, 'control.tar.gz')
     with tarfile.open(control_tar_path, 'w:gz') as tar:
-        tar.add(debian_dir, arcname='DEBIAN')
+        # 逐文件添加并设置权限
+        for root, dirs, files in os.walk(debian_dir):
+            for f in files:
+                fpath = os.path.join(root, f)
+                arcname = os.path.relpath(fpath, DIST_DIR).replace('\\', '/')
+                tinfo = tar.gettarinfo(fpath, arcname)
+                if f in ('postinst', 'prerm', 'extrainst_'):
+                    tinfo.mode = 0o755  # 脚本可执行
+                else:
+                    tinfo.mode = 0o644  # 普通文件
+                with open(fpath, 'rb') as fh:
+                    tar.addfile(tinfo, fh)
+            for d in dirs:
+                dpath = os.path.join(root, d)
+                arcname = os.path.relpath(dpath, DIST_DIR).replace('\\', '/')
+                tinfo = tar.gettarinfo(dpath, arcname)
+                tinfo.mode = 0o755
+                tar.addfile(tinfo)
     with open(control_tar_path, 'rb') as f:
         control_data = f.read()
     print(f'  control.tar.gz: {len(control_data)} bytes')
     
-    # 创建 data.tar.gz
+    # 创建 data.tar.gz（显式设置权限）
     print('==> 创建 data.tar.gz')
     data_tar_path = os.path.join(DIST_DIR, 'data.tar.gz')
     with tarfile.open(data_tar_path, 'w:gz') as tar:
         var_dir = os.path.join(DIST_DIR, 'var')
         if os.path.exists(var_dir):
-            tar.add(var_dir, arcname='var')
+            for root, dirs, files in os.walk(var_dir):
+                for f in files:
+                    fpath = os.path.join(root, f)
+                    arcname = os.path.relpath(fpath, DIST_DIR).replace('\\', '/')
+                    tinfo = tar.gettarinfo(fpath, arcname)
+                    if f.endswith('.dylib'):
+                        tinfo.mode = 0o755  # dylib 可执行
+                    else:
+                        tinfo.mode = 0o644  # plist 普通文件
+                    with open(fpath, 'rb') as fh:
+                        tar.addfile(tinfo, fh)
+                for d in dirs:
+                    dpath = os.path.join(root, d)
+                    arcname = os.path.relpath(dpath, DIST_DIR).replace('\\', '/')
+                    tinfo = tar.gettarinfo(dpath, arcname)
+                    tinfo.mode = 0o755
+                    tar.addfile(tinfo)
     with open(data_tar_path, 'rb') as f:
         data_data = f.read()
     print(f'  data.tar.gz: {len(data_data)} bytes')
