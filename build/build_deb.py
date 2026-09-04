@@ -15,13 +15,13 @@ BUILD_DIR = os.path.join(PROJECT_ROOT, 'build')
 DIST_DIR = os.path.join(BUILD_DIR, 'dist')
 LAYOUT_DIR = os.path.join(PROJECT_ROOT, 'layout')
 
-DEB_NAME = 'com.ps.filesharetweak_1.0.0_iphoneos-arm.deb'
+DEB_NAME = 'com.ps.filesharetweak_1.0.0_iphoneos-arm64e.deb'
 DEB_PATH = os.path.join(BUILD_DIR, DEB_NAME)
 
 CONTROL_DATA = '''Package: com.ps.filesharetweak
 Name: FileShareTweak
 Version: 1.0.0
-Architecture: iphoneos-arm
+Architecture: iphoneos-arm64e
 Priority: optional
 Section: Tweaks
 Author: PS <ps@localhost>
@@ -112,15 +112,15 @@ def main():
     print(f'  prerm: {prerm_path}')
     
     # 复制文件到 dist 目录
-    # 文件结构: Library/... (rootful，RootHidePatcher 会转换)
-    target_dylib = os.path.join(DIST_DIR, 'Library',
+    # 文件结构: var/jb/Library/... (rootless，安装到 /var/jb)
+    target_dylib = os.path.join(DIST_DIR, 'var', 'jb', 'Library',
                                 'MobileSubstrate', 'DynamicLibraries', 'FileShareTweak.dylib')
     os.makedirs(os.path.dirname(target_dylib), exist_ok=True)
     shutil.copy2(dylib_path, target_dylib)
     print(f'  dylib: {target_dylib}')
     
     # plist
-    target_plist = os.path.join(DIST_DIR, 'Library',
+    target_plist = os.path.join(DIST_DIR, 'var', 'jb', 'Library',
                                 'MobileSubstrate', 'DynamicLibraries', 'FileShareTweak.plist')
     shutil.copy2(os.path.join(PROJECT_ROOT, 'FileShareTweak.plist'), target_plist)
     print(f'  plist: {target_plist}')
@@ -128,7 +128,7 @@ def main():
     # 偏好设置 Bundle
     bundle_src = os.path.join(LAYOUT_DIR, 'Library',
                                'PreferenceBundles', 'FileShareTweakSettings.bundle')
-    bundle_dst = os.path.join(DIST_DIR, 'Library',
+    bundle_dst = os.path.join(DIST_DIR, 'var', 'jb', 'Library',
                                'PreferenceBundles', 'FileShareTweakSettings.bundle')
     if os.path.exists(bundle_src):
         shutil.copytree(bundle_src, bundle_dst)
