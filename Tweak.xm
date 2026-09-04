@@ -65,6 +65,15 @@ static BOOL openFileWithApp(NSURL *fileURL, NSString *bundleID) {
 %hook UIDocumentInteractionController
 
 - (BOOL)presentOptionsMenuFromRect:(CGRect)rect inView:(UIView *)view animated:(BOOL)animated {
+    // 不挂钩主屏(SpringBoard)与 Sileo 自身：
+    // 1) 避免安装/卸载时重启主屏把包管理器一起杀掉导致 dpkg 中断；
+    // 2) 避免 Sileo 打开 deb 时触发 "deb→Sileo" 死循环。
+    NSString *selfBid = [[NSBundle mainBundle] bundleIdentifier];
+    if ([selfBid isEqualToString:@"com.apple.springboard"] ||
+        [selfBid localizedCaseInsensitiveContainsString:@"sileo"]) {
+        return %orig;
+    }
+
     NSURL *fileURL = [self URL];
     if (!fileURL) return %orig;
 
