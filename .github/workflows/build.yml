@@ -47,21 +47,6 @@ jobs:
         make clean
         make package FINALPACKAGE=1
 
-    - name: Fix Architecture to iphoneos-arm64e (Relaxin/RootHide)
-      run: |
-        set -e
-        deb=$(ls packages/*.deb | head -1)
-        mkdir -p _fix && cd _fix
-        ar x "../$deb"
-        mkdir -p ctrl
-        tar -xzf control.tar.gz -C ctrl
-        sed -i '' 's/^Architecture: iphoneos-arm64$/Architecture: iphoneos-arm64e/' ctrl/control
-        echo "control after patch:" && cat ctrl/control | grep Architecture
-        tar -czf control.tar.gz -C ctrl .
-        cd ..
-        ar rcs "$deb" debian-binary control.tar.gz data.tar.lzma
-        rm -rf _fix
-
     - name: Rename .deb
       run: |
         mv packages/*.deb FileShareTweak.deb || true
