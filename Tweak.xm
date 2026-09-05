@@ -167,7 +167,7 @@ static void presentChooser(NSURL *fileURL, NSString *ext) {
 static void presentDiag(NSString *method, NSURL *url, NSString *ext, NSArray *targets, BOOL prot) {
     UIViewController *top = topViewController();
     if (!top) return;
-    NSArray *syms = [[NSThread callStackSymbols] componentsSeparatedByString:@"\n"];
+    NSArray *syms = [NSThread callStackSymbols];
     if (syms.count > 14) syms = [syms subarrayWithRange:NSMakeRange(0, 14)];
     NSString *msg = [NSString stringWithFormat:
         @"method=%@\next=%@\nurl=%@\nprotected=%d\ntargets=%@\n\nstack(前14):\n%@",
@@ -232,7 +232,14 @@ static BOOL handleDocController(id self, NSString *method) {
 }
 
 - (void)presentPreviewAnimated:(BOOL)animated {
-    FSLog(@"UIDIC presentPreviewAnimated: url=%@", [self URL]);
+    if (!isProtectedProcess()) {
+        NSURL *fileURL = [self URL];
+        NSString *ext = [[fileURL path] pathExtension].lowercaseString;
+        NSArray *targets = targetsForExt(ext);
+        FSLog(@"UIDIC presentPreviewAnimated: url=%@ ext=%@ targets=%@", fileURL, ext, targets);
+        FSLog(@"stack:\n%@", [NSThread callStackSymbols]);
+        presentDiag(@"presentPreviewAnimated:", fileURL, ext, targets, NO);
+    }
     %orig;
 }
 
@@ -287,7 +294,15 @@ static BOOL handleDocController(id self, NSString *method) {
 // 兜底：跟踪系统 openURL，看 Filza 是否绕过 doc controller 直接 openURL
 %hook UIApplication
 - (BOOL)openURL:(NSURL *)url options:(NSDictionary *)options completionHandler:(void (^)(BOOL))completion {
-    FSLog(@"UIApplication openURL: %@ (from %@)", url, [[NSBundle mainBundle] bundleIdentifier]);
+    NSString *bid = [[NSBundle mainBundle] bundleIdentifier];
+    NSString *scheme = url.scheme ?: @"";
+    if ([scheme isEqualToString:@"file"]) {
+        FSLog(@"UIApplication openURL(file): %@ (from %@)", url, bid);
+        FSLog(@"stack:\n%@", [NSThread callStackSymbols]);
+        NSString *ext = [[url path] pathExtension].lowercaseString;
+        NSArray *targets = targetsForExt(ext);
+        presentDiag(@"UIApplication.openURL:file", url, ext, targets, NO);
+    }
     return %orig;
 }
 %end
